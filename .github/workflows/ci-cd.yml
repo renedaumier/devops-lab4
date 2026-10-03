@@ -3,6 +3,8 @@ name: CI-CD
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -11,21 +13,45 @@ permissions:
   id-token: write
 
 jobs:
-  build:
+  test:
+    name: Тесты на Python ${{ matrix.python }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.11', '3.12', '3.13']
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python }}
       - run: pip install pytest
-      - run: pytest -v
+      - run: pytest -v --junitxml=report-${{ matrix.python }}.xml
+      - name: Сохранить отчёт тестов
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ matrix.python }}
+          path: report-${{ matrix.python }}.xml
+
+  build:
+    name: Сборка сайта
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Собрать сайт и вписать номер сборки
+        run: |
+          mkdir -p site
+          cp index.html site/
+          sed -i "s/BUILD_INFO/Сборка №${{ github.run_number }}, коммит ${GITHUB_SHA::7}/" site/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: site
 
   deploy:
+    name: Выкладка на сайт
     needs: build
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
