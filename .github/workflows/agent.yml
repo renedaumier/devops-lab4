@@ -1,0 +1,14 @@
+   name: Self-hosted agent check
+
+   on: workflow_dispatch
+
+   jobs:
+     info:
+       runs-on: [self-hosted, mirea]
+       steps:
+         - uses: actions/checkout@v4
+         - name: Информация об агенте
+           run: |
+             hostname
+             [System.Environment]::OSVersion
+             Get-ChildItem
